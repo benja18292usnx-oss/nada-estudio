@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
 <title>Nada® — Estudio creativo. Nada es todo.</title>
 <meta name="description" content="Nada® es un estudio creativo (ficticio) de ideas, marcas y experiencias digitales. Conocé a T.E.L.E., nuestra asistente con cabeza de tele.">
 <meta name="theme-color" content="#d4d5dc">
@@ -36,7 +36,9 @@
       </div>
       <p class="handle">@nada.estudio</p>
     </div>
-    <p class="hint">Mové el mouse o tocá la pantalla · Tocá la tele</p>
+    <p class="hint">Mové el mouse · Tocá la tele (no 10 veces)</p>
+    <p id="taps" class="taps" aria-live="polite"></p>
+    <button id="repair" class="repair" type="button" hidden>🔧 Reparar tele</button>
     <a class="scrolldown" href="#nada" aria-label="Bajar">Scrolleá <i>↓</i></a>
   </section>
 
@@ -77,6 +79,13 @@
   </section>
 </main>
 
+<button id="chatFab" class="chat-fab" type="button" aria-controls="chatPanel" aria-expanded="false"><canvas id="mini" width="52" height="44" aria-hidden="true"></canvas><span>Hablale a T.E.L.E.</span></button>
+<section id="chatPanel" class="chat-panel" hidden aria-label="Chat con T.E.L.E.">
+  <header><b>T.E.L.E.</b><span>Asistente sarcástica · responde al toque</span><button id="chatClose" type="button" aria-label="Cerrar chat">✕</button></header>
+  <div id="chatLog" class="chat-log" aria-live="polite"></div>
+  <div class="sugg"><button type="button">¿Qué hora es?</button><button type="button">Contame un chiste</button><button type="button">¿Voy a aprobar?</button><button type="button">¿Sos una IA?</button></div>
+  <form id="chatForm" autocomplete="off"><input id="chatInput" type="text" maxlength="400" placeholder="Preguntale lo que quieras…" enterkeyhint="send" aria-label="Tu mensaje"><button type="submit" aria-label="Enviar">↑</button></form>
+</section>
 <button id="q" type="button" aria-label="Cambiar calidad gráfica">Calidad: <span>auto</span></button>
 <script type="module" src="app.js"></script>
 </body>

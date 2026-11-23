@@ -1,6 +1,7 @@
 import * as THREE from './vendor/three/three.module.min.js';
 import { RoomEnvironment } from './vendor/three/addons/RoomEnvironment.js';
 import { RoundedBoxGeometry } from './vendor/three/addons/RoundedBoxGeometry.js';
+import { reply } from './tele.js';
 
 /* ---------- calidad ---------- */
 const params = new URLSearchParams(location.search);
@@ -126,57 +127,128 @@ const hero = (() => {
   { const p = scrG.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i) / 0.63, y = p.getY(i) / 0.51; p.setZ(i, 0.055 * (1 - x * x * 0.85) * (1 - y * y * 0.85)); } scrG.computeVertexNormals(); }
   const logoCv = document.createElement('canvas'); logoCv.width = 256; logoCv.height = 208;
   const logoTex = new THREE.CanvasTexture(logoCv);
+  const symCv = document.createElement('canvas'); symCv.width = 256; symCv.height = 208;
+  const symTex = new THREE.CanvasTexture(symCv);
   const screenMat = new THREE.ShaderMaterial({
-    uniforms: { uTime: { value: 0 }, uLook: { value: new THREE.Vector2() }, uBlink: { value: 0 }, uHappy: { value: 0 }, uMode: { value: 0 }, uBar: { value: 0 }, uLogo: { value: logoTex }, uWake: { value: 0 } },
+    uniforms: { uTime: { value: 0 }, uLook: { value: new THREE.Vector2() }, uBlink: { value: 0 }, uMode: { value: 0 }, uBar: { value: 0 }, uLogo: { value: logoTex }, uWake: { value: 0 }, uFaceA: { value: 0 }, uFaceB: { value: 0 }, uFaceMix: { value: 1 }, uSym: { value: symTex }, uSymAmt: { value: 0 }, uGlitch: { value: 0 }, uBroken: { value: 0 }, uImpact: { value: new THREE.Vector2(0.12, 0.08) } },
     vertexShader: `varying vec2 vUv; varying vec3 vN; varying vec3 vV;
       void main(){ vUv=uv; vec4 mv=modelViewMatrix*vec4(position,1.); vN=normalize(normalMatrix*normal); vV=-mv.xyz; gl_Position=projectionMatrix*mv; }`,
     fragmentShader: `
-      uniform float uTime,uBlink,uHappy,uMode,uBar,uWake; uniform vec2 uLook; uniform sampler2D uLogo;
+      uniform float uTime,uBlink,uMode,uBar,uWake,uFaceA,uFaceB,uFaceMix,uSymAmt,uGlitch,uBroken; uniform vec2 uLook,uImpact; uniform sampler2D uLogo,uSym;
       varying vec2 vUv; varying vec3 vN; varying vec3 vV;
       float rbox(vec2 p, vec2 b, float r){ vec2 q=abs(p)-b+r; return length(max(q,0.))+min(max(q.x,q.y),0.)-r; }
-      vec3 eye(vec2 p, vec2 c){
-        vec2 e = p - c; e.y /= max(1.-uBlink, .07);
-        float d = length(e);
-        float core = smoothstep(.112, .096, d);
-        vec3 cc = mix(vec3(1.32,1.34,1.38), vec3(.78,.84,.98), smoothstep(.03,.11,d));
-        float halo = exp(-d*d*36.);
-        // ojitos felices ^ ^
-        vec2 h = p - c + vec2(0., .03);
-        float arc = abs(length(h)-.085) - .018; arc = max(arc, -h.y+.0);
-        float happy = smoothstep(.008,-.004,arc);
-        vec3 normal = cc*core + vec3(.55,.68,1.)*halo*.55*(1.-uBlink*.8);
-        vec3 hap = vec3(1.25)*happy + vec3(.55,.68,1.)*exp(-pow(abs(length(h)-.085),2.)*700.)*.25*step(0.,h.y);
-        return mix(normal, hap, uHappy);
+      float h1(float n){ return fract(sin(n*127.1)*43758.5453); }
+      float h2(vec2 p){ return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453); }
+      vec2 h22(vec2 p){ return fract(sin(vec2(dot(p,vec2(127.1,311.7)),dot(p,vec2(269.5,183.3))))*43758.5453); }
+      float dot2(vec2 v){ return dot(v,v); }
+      float sdHeart(vec2 p){ p.x=abs(p.x); if(p.y+p.x>1.) return sqrt(dot2(p-vec2(.25,.75)))-sqrt(2.)/4.; return sqrt(min(dot2(p-vec2(0.,1.)), dot2(p-.5*max(p.x+p.y,0.))))*sign(p.x-p.y); }
+      const vec3 GL = vec3(.55,.68,1.);
+      // 0 normal 1 feliz 2 enojada 3 aburrida 4 sorprendida 5 enamorada 6 dormida 7 confundida
+      vec3 face(float id, vec2 p, vec2 c, float side){
+        vec2 e = p - c;
+        float bl = (id>5.5 && id<6.5) ? 0. : uBlink;
+        vec2 eb = vec2(e.x, e.y/max(1.-bl,.07));
+        float d = length(eb);
+        vec3 W = vec3(1.3,1.32,1.36);
+        if(id<.5){
+          float core=smoothstep(.112,.096,d);
+          vec3 cc=mix(W, vec3(.78,.84,.98), smoothstep(.03,.11,d));
+          return cc*core + GL*exp(-d*d*36.)*.55*(1.-bl*.8);
+        }
+        if(id<1.5){
+          vec2 h=e+vec2(0.,.03); float arc=max(abs(length(h)-.085)-.018, -h.y);
+          return W*smoothstep(.008,-.004,arc) + GL*exp(-pow(abs(length(h)-.085),2.)*700.)*.25*step(0.,h.y);
+        }
+        if(id<2.5){ // enojada: ojo cortado en diagonal + rojo
+          float core=smoothstep(.112,.096,d);
+          float cut=smoothstep(.006,-.006, eb.y - (.0 - side*eb.x*.75));
+          vec3 R=vec3(1.45,.42,.36);
+          return R*core*cut + vec3(1.,.25,.2)*exp(-d*d*30.)*.5*(.6+.4*cut);
+        }
+        if(id<3.5){ // aburrida: párpado a media asta, mira abajo
+          vec2 f=vec2(e.x, e.y+.035); f.y/=max(1.-bl,.07); float dd=length(f);
+          float core=smoothstep(.104,.09,dd)*smoothstep(.006,-.006, f.y-.0);
+          float lid=smoothstep(.012,0.,abs(f.y))*step(abs(f.x),.1);
+          return W*max(core,lid*.9) + GL*exp(-dd*dd*40.)*.3;
+        }
+        if(id<4.5){ // sorprendida: aros grandes con puntito
+          float ring=smoothstep(.022,.008,abs(d-.115)); float dotc=smoothstep(.04,.03,d);
+          return W*max(ring,dotc) + GL*exp(-d*d*20.)*.45;
+        }
+        if(id<5.5){ // enamorada: corazones que laten
+          float beat=1.+.12*pow(abs(sin(uTime*3.2)),6.);
+          vec2 q=e/(.24*beat)*vec2(1.,1.)+vec2(0.,.5);
+          float hd=sdHeart(q);
+          vec3 P=vec3(1.5,.45,.75);
+          return P*smoothstep(.03,-.03,hd) + vec3(1.,.3,.6)*exp(-max(hd,0.)*9.)*.4;
+        }
+        if(id<6.5){ // dormida: rayita curva
+          vec2 h=e-vec2(0.,.02); float arc=max(abs(length(h)-.085)-.014, h.y);
+          return W*.9*smoothstep(.008,-.004,arc);
+        }
+        // confundida: uno chico, uno grande y un poco más arriba
+        float r = side<0. ? .07 : .125; vec2 ec = side<0. ? eb+vec2(0.,.02) : eb-vec2(0.,.03);
+        float dc=length(ec); float core=smoothstep(r,r-.016,dc);
+        return W*core + GL*exp(-dc*dc*30.)*.5;
+      }
+      vec3 eyes(float id, vec2 p, vec2 lk){
+        float sp = (id>6.5) ? .225 : .215;
+        return face(id,p,vec2(-sp,.035)+lk,-1.) + face(id,p,vec2(sp,.035)+lk,1.);
       }
       void main(){
-        vec2 p = (vUv-.5)*vec2(1.26,1.02);
-        float ed = rbox(p, vec2(.63,.51), .13);
+        vec2 uv0 = vUv;
+        // glitch: líneas desplazadas
+        float row = floor(uv0.y*38.); float gt = floor(uTime*18.);
+        float gs = step(1.-uGlitch*.55, h1(row+gt*7.1)) * (h1(row*3.3+gt)-.5) * .16 * uGlitch;
+        vec2 uv = vec2(uv0.x+gs, uv0.y);
+        vec2 p = (uv-.5)*vec2(1.26,1.02);
+        vec2 p0 = (uv0-.5)*vec2(1.26,1.02);
+        float ed = rbox(p0, vec2(.63,.51), .13);
         vec3 col = vec3(.016,.018,.022);
-        col += vec3(.025,.03,.04)*(1.-smoothstep(0.,.62,length(p*vec2(.85,1.))));
+        col += vec3(.025,.03,.04)*(1.-smoothstep(0.,.62,length(p0*vec2(.85,1.))));
         vec2 lk = uLook*vec2(.13,.085);
-        vec3 eyes = eye(p, vec2(-.215,.035)+lk) + eye(p, vec2(.215,.035)+lk);
-        col += eyes*(1.-uMode)*uWake;
-        // modo logo (como cuando carga)
-        float lg = texture2D(uLogo, vUv).r;
-        col += vec3(1.15)*lg*uMode;
+        vec3 ey = mix(eyes(uFaceA,p,lk), eyes(uFaceB,p,lk), uFaceMix);
+        // ojos que se mueren al romperse
+        float alive = 1.-uBroken;
+        float dying = uBroken*step(.93, h1(floor(uTime*9.)))*step(uBroken,.995);
+        ey.r += ey.r*gs*6.;  // corrimiento de color en glitch
+        col += ey*(1.-uMode)*uWake*max(alive, dying*.6);
+        // modo logo
+        col += vec3(1.15)*texture2D(uLogo, uv).r*uMode;
         float bar = step(abs(p.y-.37),.017)*step(-.5,p.x)*step(p.x,-.5+.36*uBar);
         col += vec3(.45,.52,1.)*bar*uMode;
-        // led de encendido / ruido
-        float sn = fract(sin(dot(floor(vUv*vec2(220.,180.))+floor(uTime*24.), vec2(12.9898,78.233)))*43758.5453);
-        col += sn*.035*(1.-uWake*.85);
-        // scanlines + banda que rueda + parpadeo
-        col *= .9+.1*sin(vUv.y*520.);
-        col += vec3(.02,.025,.03)*smoothstep(.0,.08,fract(vUv.y*.6-uTime*.12))*smoothstep(.16,.08,fract(vUv.y*.6-uTime*.12));
+        // símbolos (Zzz, ?, !)
+        col += vec3(1.1,1.12,1.2)*texture2D(uSym, uv).r*uSymAmt*(1.-uMode)*alive;
+        // estática
+        float sn = h2(floor(uv0*vec2(220.,180.))+floor(uTime*24.)*vec2(1.3,2.1));
+        col += sn*(.035*(1.-uWake*.85) + .32*uGlitch*h1(row+gt) + .22*uBroken*(.6+.4*sin(uTime*13.)));
+        col = mix(col, vec3(.9)*sn, uGlitch*.18*step(.75,h1(gt*1.7)));
+        // scanlines + banda + parpadeo
+        col *= .9+.1*sin(uv0.y*520.);
+        col += vec3(.02,.025,.03)*smoothstep(.0,.08,fract(uv0.y*.6-uTime*.12))*smoothstep(.16,.08,fract(uv0.y*.6-uTime*.12));
         col *= .985+.015*sin(uTime*60.);
-        // viñeta del tubo
         col *= mix(.35, 1., smoothstep(.0,-.16,ed));
-        // reflejo del vidrio
+        // vidrio
         vec3 n = normalize(vN), v = normalize(vV);
         vec3 r = reflect(-v, n);
         float fres = pow(1.-max(dot(n,v),0.), 3.);
         float win = smoothstep(.25,.75,r.y)*smoothstep(.9,.2,abs(r.x+.25));
-        col += vec3(.75,.8,.9)*(.035*win + .25*fres) ;
-        col += vec3(1.)*.05*smoothstep(.02,0.,abs(p.x+p.y*.6+.35))*smoothstep(.0,-.1,ed);
+        // vidrio roto: rajaduras radiales + anillos (voronoi en coordenadas polares)
+        if(uBroken>.01){
+          vec2 q = p0-uImpact; float rr=length(q); float an=atan(q.y,q.x);
+          vec2 g = vec2(an*1.7+sin(rr*9.)*.25, log(rr+.02)*1.5);
+          vec2 gi=floor(g), gf=fract(g); float d1=8., d2=8.; vec2 cid=vec2(0.);
+          for(int j=-1;j<=1;j++) for(int i=-1;i<=1;i++){ vec2 o=vec2(float(i),float(j)); vec2 pt=o+h22(gi+o)*.85; float dd=length(gf-pt); if(dd<d1){d2=d1; d1=dd; cid=gi+o;} else if(dd<d2) d2=dd; }
+          float crack = smoothstep(.07,.0,d2-d1) * smoothstep(.85,.02,rr) * uBroken;
+          float shard = h2(cid);
+          col *= 1.-.35*uBroken*smoothstep(.0,.35,rr)*step(.7,shard);
+          col += vec3(.85,.9,1.)*crack*.8;
+          col += vec3(1.)*smoothstep(.05,.0,rr)*uBroken*.7;
+          win *= .5+shard;
+          fres += .25*crack;
+        }
+        col += vec3(.75,.8,.9)*(.035*win + .25*fres);
+        col += vec3(1.)*.05*smoothstep(.02,0.,abs(p0.x+p0.y*.6+.35))*smoothstep(.0,-.1,ed);
         col *= smoothstep(.004,-.004,ed);
         gl_FragColor = vec4(col,1.);
       }`,
@@ -263,7 +335,83 @@ const hero = (() => {
     cam.near = d * 0.3; cam.far = d * 3; cam.updateProjectionMatrix();
   }
   function say(kind) { st.mode = 1; st.modeT = 2.4; st.bar = 0; if (kind) drawLogo(kind === 'tienda' ? 'PRONTO' : null); else drawLogo(); }
-  function poke() { st.happy = 1; st.happyT = 1.3; }
+  // ---- caras, glitch, rotura ----
+  const FACES = { normal: 0, feliz: 1, enojada: 2, aburrida: 3, sorprendida: 4, enamorada: 5, dormida: 6, confundida: 7 };
+  const SYMS = { dormida: 'Zzz', confundida: '?', sorprendida: '!', enojada: '#@!' };
+  const fx = { a: 0, b: 0, mix: 1, name: 'normal', until: 0, sym: 0, glitch: 0, glitchT: 0, shake: 0, broken: 0, brokenT: 0, isBroken: false, lastAct: 0, nextIdle: 10, sleeping: false, spark: 0 };
+  function drawSym(t) {
+    const g = symCv.getContext('2d'); g.fillStyle = '#000'; g.fillRect(0, 0, 256, 208);
+    if (t) { g.fillStyle = '#fff'; g.font = '400 ' + (t.length > 2 ? 30 : 38) + 'px "Archivo Black"'; g.textAlign = 'right'; g.textBaseline = 'top'; g.fillText(t, 226, 22); }
+    symTex.needsUpdate = true;
+  }
+  drawSym('');
+  function setFace(name, dur = 3) {
+    if (!(name in FACES)) name = 'normal';
+    const now2 = clock.elapsedTime; fx.lastAct = now2;
+    fx.until = name === 'normal' ? 0 : now2 + dur;
+    if (name !== fx.name) {
+      fx.a = fx.mix > 0.5 ? fx.b : fx.a; fx.b = FACES[name]; fx.mix = 0; fx.name = name;
+      drawSym(SYMS[name] || ''); fx.sym = SYMS[name] ? 1 : 0;
+    }
+    if (name !== 'dormida') fx.sleeping = false;
+  }
+  function glitch(a, d = 0.8) { fx.glitch = Math.max(fx.glitch, a); fx.glitchT = d; }
+  function shake(a) { fx.shake = Math.max(fx.shake, a); }
+  function breakTV() {
+    fx.isBroken = true; fx.brokenT = 0; glitch(1, 1.2); shake(1); setFace('sorprendida', 0.4);
+    screenMat.uniforms.uImpact.value.set((Math.random() - 0.5) * 0.5, (Math.random() - 0.5) * 0.35);
+    burst(40);
+  }
+  function repair() { fx.isBroken = false; glitch(0.6, 0.6); say(); setTimeout(() => setFace('enojada', 3), 2200); }
+  // chispas
+  const NSP = 70, spPos = new Float32Array(NSP * 3), spCol = new Float32Array(NSP * 3), spVel = new Float32Array(NSP * 3), spLife = new Float32Array(NSP);
+  for (let i = 0; i < NSP; i++) spPos[i * 3 + 1] = -999;
+  const spG = new THREE.BufferGeometry(); spG.setAttribute('position', new THREE.BufferAttribute(spPos, 3)); spG.setAttribute('color', new THREE.BufferAttribute(spCol, 3));
+  const sparks = new THREE.Points(spG, new THREE.PointsMaterial({ size: 0.07, vertexColors: true, depthWrite: false, toneMapped: false }));
+  sparks.frustumCulled = false; head.add(sparks);
+  let spI = 0;
+  function burst(n) {
+    const im = screenMat.uniforms.uImpact.value;
+    for (let k = 0; k < n; k++) {
+      const i = spI++ % NSP; const fromEdge = Math.random() < 0.45;
+      const x = fromEdge ? (Math.random() < 0.5 ? -0.66 : 0.66) : im.x, y = fromEdge ? HC + (Math.random() - 0.3) * 0.9 : HC + 0.05 + im.y;
+      spPos[i * 3] = x; spPos[i * 3 + 1] = y; spPos[i * 3 + 2] = 0.42;
+      const a = Math.random() * Math.PI * 2, sp = 0.6 + Math.random() * 1.6;
+      spVel[i * 3] = Math.cos(a) * sp * 0.8; spVel[i * 3 + 1] = Math.abs(Math.sin(a)) * sp + 0.4; spVel[i * 3 + 2] = 0.3 + Math.random() * 0.8;
+      spLife[i] = 0.5 + Math.random() * 0.6;
+    }
+  }
+  function updateSparks(dt) {
+    for (let i = 0; i < NSP; i++) {
+      if (spLife[i] <= 0) { spPos[i * 3 + 1] = -999; continue; }
+      spLife[i] -= dt; spVel[i * 3 + 1] -= 4.2 * dt;
+      spPos[i * 3] += spVel[i * 3] * dt; spPos[i * 3 + 1] += spVel[i * 3 + 1] * dt; spPos[i * 3 + 2] += spVel[i * 3 + 2] * dt;
+      const l = Math.max(0, Math.min(1, spLife[i] * 1.6));
+      spCol[i * 3] = 1.0; spCol[i * 3 + 1] = 0.45 + 0.5 * l * l; spCol[i * 3 + 2] = 0.1 + 0.6 * l * l * l;
+    }
+    spG.attributes.position.needsUpdate = true; spG.attributes.color.needsUpdate = true;
+  }
+  function updateFx(dt, time) {
+    fx.mix = Math.min(1, fx.mix + dt * 5);
+    if (fx.until && time > fx.until && !fx.isBroken) setFace(fx.sleeping ? 'dormida' : 'normal');
+    // caras al azar y siesta
+    const idleFor = Math.min(now() - ptr.t, time - fx.lastAct);
+    if (!fx.isBroken && fx.name === 'normal' && st.mode < 0.05) {
+      if (idleFor > 28 && !fx.sleeping) { fx.sleeping = true; setFace('dormida', 1e6); }
+      else if (time - fx.lastAct > fx.nextIdle) { fx.nextIdle = 9 + Math.random() * 9; setFace(['aburrida', 'confundida', 'sorprendida', 'feliz', 'enamorada'][Math.floor(Math.random() * 5)], 1.8); }
+    }
+    if (fx.sleeping && now() - ptr.t < 0.5 && time > 2) { fx.sleeping = false; setFace('sorprendida', 1.4); }
+    fx.glitchT -= dt; if (fx.glitchT <= 0) fx.glitch = Math.max(0, fx.glitch - dt * 2.5);
+    fx.shake = Math.max(0, fx.shake - dt * 1.8);
+    fx.broken += ((fx.isBroken ? 1 : 0) - fx.broken) * Math.min(1, dt * (fx.isBroken ? 10 : 3));
+    if (fx.isBroken) { fx.brokenT += dt; fx.spark -= dt; if (fx.spark <= 0) { fx.spark = 0.25 + Math.random() * 1.1; burst(4 + Math.floor(Math.random() * 10)); if (Math.random() < 0.4) glitch(0.5, 0.15); } }
+    updateSparks(dt);
+    const u = screenMat.uniforms;
+    u.uFaceA.value = fx.a; u.uFaceB.value = fx.b; u.uFaceMix.value = fx.mix;
+    u.uSymAmt.value += ((fx.sym && !fx.isBroken ? 1 : 0) * (0.75 + 0.25 * Math.sin(time * 3)) - u.uSymAmt.value) * Math.min(1, dt * 6);
+    u.uGlitch.value = Math.min(1, fx.glitch + (fx.isBroken ? 0.12 : 0)); u.uBroken.value = fx.broken;
+  }
+  function poke() { glitch(0.15, 0.2); }
   function update(dt, time, rect) {
     // a dónde mira: puntero relativo a la cabeza en pantalla
     headScreen.set(0, NECK.y + HC, 0.4).project(cam);
@@ -279,17 +427,19 @@ const hero = (() => {
     st.vp += ((tpitch - st.pitch) * k - st.vp * damp) * dt; st.pitch += st.vp * dt;
     head.rotation.set(st.pitch, st.yaw, -st.yaw * 0.08 + Math.sin(time * 0.8) * 0.01);
     head.position.y = Math.sin(time * 1.1) * 0.006;
+    if (fx.shake > 0) { const a = fx.shake * fx.shake * 0.05; head.position.x = (Math.random() - 0.5) * a; head.position.y += (Math.random() - 0.5) * a; head.rotation.z += (Math.random() - 0.5) * a; } else head.position.x = 0;
+    if (fx.isBroken) { head.rotation.x = st.pitch * 0.3 + 0.12; head.rotation.z += 0.06; }
     st.look.lerp(new THREE.Vector2(THREE.MathUtils.clamp(tx * 0.9, -1, 1), THREE.MathUtils.clamp(ty * 0.9, -1, 1)), 1 - Math.exp(-dt * 10));
     // parpadeo
     st.nextBlink -= dt;
     if (st.nextBlink <= 0 && st.blinkT < 0) { st.blinkT = 0; st.nextBlink = 2.2 + Math.random() * 3.2; if (Math.random() < 0.2) st.nextBlink = 0.32; }
     if (st.blinkT >= 0) { st.blinkT += dt; const b = st.blinkT / 0.16; st.blink = b < 0.5 ? b * 2 : Math.max(0, 2 - b * 2); if (b >= 1) { st.blinkT = -1; st.blink = 0; } }
-    st.happyT -= dt; st.happy += ((st.happyT > 0 ? 1 : 0) - st.happy) * Math.min(1, dt * 12);
     st.modeT -= dt; const m = st.modeT > 0 ? 1 : 0; st.mode += (m - st.mode) * Math.min(1, dt * 14); if (m) st.bar = Math.min(1, st.bar + dt * 0.7);
     st.wake = Math.min(1, st.wake + dt * 0.9);
-    const u = screenMat.uniforms; u.uTime.value = time; u.uLook.value.copy(st.look); u.uBlink.value = st.blink; u.uHappy.value = st.happy; u.uMode.value = st.mode; u.uBar.value = st.bar; u.uWake.value = st.wake < 0.35 ? (Math.random() < 0.5 ? 0.2 : 1) * st.wake : st.wake;
+    const u = screenMat.uniforms; u.uTime.value = time; u.uLook.value.copy(st.look); u.uBlink.value = st.blink; u.uMode.value = st.mode; u.uBar.value = st.bar; u.uWake.value = st.wake < 0.35 ? (Math.random() < 0.5 ? 0.2 : 1) * st.wake : st.wake;
     ledMat.color.setHSL(0.63, 0.9, 0.62 + 0.08 * Math.sin(time * 3));
     bgMat.uniforms.uShadow.value.set(Math.sin(st.yaw) * 0.12, 0, 1); bgMat.uniforms.uTime.value = time % 10;
+    updateFx(dt, time);
     updateCables(time);
   }
   // tocar la tele
@@ -299,7 +449,7 @@ const hero = (() => {
     const r = rect.height / (2 * Math.tan(THREE.MathUtils.degToRad(cam.fov / 2)) * cam.position.z) * 0.8;
     return Math.hypot(x - hx, y - hy) < r;
   }
-  return { scene, cam, layout, update, say, poke, hitHead, loaded: false };
+  return { scene, cam, layout, update, say, poke, hitHead, setFace, glitch, shake, breakTV, repair, fx, loaded: false };
 })();
 
 /* =====================================================================
@@ -582,18 +732,123 @@ function type(text) {
   const step = () => { if (id !== typing) return; chatEl.textContent = text.slice(0, ++i); if (i < text.length) setTimeout(step, 18 + Math.random() * 30); };
   step();
 }
-let pokeI = 0;
 document.querySelectorAll('[data-say]').forEach(b => b.addEventListener('click', e => {
   const k = b.dataset.say; if (b.tagName === 'A') e.preventDefault();
+  if (hero.fx.isBroken) return;
   type(LINES[k][0]); hero.say(k);
   if (k === 'trabajos') setTimeout(() => document.getElementById('trabajos').scrollIntoView({ behavior: 'smooth' }), 1300);
   if (b.tagName === 'A') scrollTo({ top: 0, behavior: 'smooth' });
 }));
+
+/* ---------- toques a la tele: a los 10 se rompe ---------- */
+const TAPS = [
+  ['¡Ey! Eso me hizo cosquillas en los tubos.', 'feliz', 0],
+  ['¿Qué tocás? ¿Pensás que soy touch? Soy de 1986.', 'sorprendida', 0],
+  ['Ya está, ya me saludaste. Suficiente.', 'aburrida', 0.1],
+  ['¿Vos no tenés nada mejor que hacer? ¿La tarea, por ejemplo?', 'confundida', 0.2],
+  ['Te estoy avisando, eh. La pantalla no es de goma.', 'enojada', 0.35],
+  ['Basta. Me estás dejando las huellas en el vidrio.', 'enojada', 0.5],
+  ['Uy, uy, uy… se me está desconfigurando todo.', 'enojada', 0.7],
+  ['UNA más y me rompo. Hablo en serio.', 'enojada', 0.85],
+  ['¡¡ÚLTIMA ADVERTENCIA!! No lo hagas…', 'sorprendida', 1],
+];
+const FINAL = ['Bien ahí. Rompiste lo único que funcionaba en esta web. ¿Contento?', 'Felicitaciones, campeón. Ahora la tele sos vos.', 'Listo. Me rompiste. Espero que tu celu no se entere de esto.'];
+let taps = 0, lastTap = 0, finalI = 0, repairTimer = 0;
+const tapsEl = document.getElementById('taps'), repairBtn = document.getElementById('repair');
+function showTaps() { tapsEl.textContent = taps ? `Toques: ${taps}/10` : ''; tapsEl.classList.toggle('on', taps > 0); tapsEl.classList.toggle('hot', taps >= 7); }
+function tapTV() {
+  const nowT = performance.now();
+  if (hero.fx.isBroken) { type(['Ya está rota. ¿Qué más querés romper?', 'Tocá “Reparar”, genio.', '¡No me toques, que me caigo a pedazos!'][Math.floor(Math.random() * 3)]); hero.shake(0.4); return; }
+  if (nowT - lastTap > 6000) taps = 0;
+  lastTap = nowT; taps++;
+  if (taps >= 10) {
+    hero.breakTV(); taps = 0; showTaps(); tapsEl.textContent = '¡Rota!'; tapsEl.classList.add('on', 'hot');
+    type(FINAL[finalI++ % FINAL.length]); setMini('rota');
+    setTimeout(() => repairBtn.hidden = false, 900);
+    clearTimeout(repairTimer); repairTimer = setTimeout(doRepair, 15000);
+    if (navigator.vibrate) navigator.vibrate([60, 40, 120]);
+    return;
+  }
+  const [line, face, g] = TAPS[taps - 1];
+  type(line); hero.setFace(face, 3.2); setMini(face);
+  if (g) { hero.glitch(g, 0.35 + g * 0.6); hero.shake(g * 0.7); } else hero.poke();
+  showTaps();
+}
+function doRepair() {
+  clearTimeout(repairTimer); if (!hero.fx.isBroken) return;
+  repairBtn.hidden = true; tapsEl.classList.remove('on', 'hot'); tapsEl.textContent = '';
+  hero.repair(); setMini('normal');
+  type('Reiniciando… Listo, como nueva. Que no se repita, ¿eh?');
+}
+repairBtn.addEventListener('click', e => { e.stopPropagation(); doRepair(); });
 heroEl.addEventListener('click', e => {
-  if (e.target.closest('button,a')) return;
-  if (hero.hitHead(e.clientX, e.clientY, heroEl.getBoundingClientRect())) { hero.poke(); type(LINES.poke[pokeI++ % LINES.poke.length]); }
+  if (e.target.closest('button,a,#chatPanel')) return;
+  if (hero.hitHead(e.clientX, e.clientY, heroEl.getBoundingClientRect())) tapTV();
 });
 
+/* ---------- chat con T.E.L.E. ---------- */
+const panel = document.getElementById('chatPanel'), fab = document.getElementById('chatFab');
+const log = document.getElementById('chatLog'), form = document.getElementById('chatForm'), input = document.getElementById('chatInput');
+const mini = document.getElementById('mini'), mg = mini.getContext('2d');
+function setMini(face) {
+  const w = mini.width, h = mini.height; mg.clearRect(0, 0, w, h);
+  mg.fillStyle = '#b8bcc4'; mg.beginPath(); mg.roundRect(0, 0, w, h, 9); mg.fill();
+  mg.fillStyle = '#0b0c0e'; mg.beginPath(); mg.roundRect(4, 4, w - 8, h - 11, 7); mg.fill();
+  const cx = w / 2, cy = (h - 7) / 2 + 2, dx = w * 0.19, r = w * 0.085; const col = { enojada: '#ff6a5c', enamorada: '#ff6fb0' }[face] || '#fff';
+  mg.fillStyle = col; mg.strokeStyle = col; mg.lineWidth = 2.4; mg.lineCap = 'round';
+  for (const sd of [-1, 1]) {
+    const x = cx + sd * dx, y = cy;
+    mg.beginPath();
+    if (face === 'feliz') { mg.arc(x, y + 2, r, Math.PI * 1.1, Math.PI * 1.9); mg.stroke(); }
+    else if (face === 'dormida') { mg.arc(x, y - 1, r, Math.PI * 0.1, Math.PI * 0.9); mg.stroke(); }
+    else if (face === 'aburrida') { mg.arc(x, y, r, 0, Math.PI); mg.fill(); }
+    else if (face === 'sorprendida') { mg.arc(x, y, r * 1.15, 0, Math.PI * 2); mg.stroke(); }
+    else if (face === 'enojada') { mg.moveTo(x - r, y - r * 0.2 * -sd); mg.lineTo(x + r, y + r * 0.2 * -sd - (sd > 0 ? 0 : 0)); mg.arc(x, y, r, 0, Math.PI); mg.fill(); mg.beginPath(); mg.moveTo(x - r * 1.1, y - r * (sd < 0 ? 1.1 : 0.2)); mg.lineTo(x + r * 1.1, y - r * (sd < 0 ? 0.2 : 1.1)); mg.stroke(); }
+    else if (face === 'enamorada') { mg.font = `${r * 3}px sans-serif`; mg.textAlign = 'center'; mg.textBaseline = 'middle'; mg.fillText('♥', x, y + 1); }
+    else if (face === 'confundida') { mg.arc(x, y + (sd < 0 ? 1 : -1), sd < 0 ? r * 0.65 : r * 1.15, 0, Math.PI * 2); mg.fill(); }
+    else if (face === 'rota') { mg.moveTo(x - r, y - r); mg.lineTo(x + r, y + r); mg.moveTo(x + r, y - r); mg.lineTo(x - r, y + r); mg.stroke(); }
+    else { mg.arc(x, y, r, 0, Math.PI * 2); mg.fill(); }
+  }
+  if (face === 'rota') { mg.strokeStyle = 'rgba(255,255,255,.6)'; mg.lineWidth = 1; mg.beginPath(); mg.moveTo(w * 0.6, 6); mg.lineTo(w * 0.5, h * 0.45); mg.lineTo(w * 0.75, h - 10); mg.stroke(); }
+}
+setMini('normal');
+function addMsg(who, text) {
+  const d = document.createElement('div'); d.className = 'msg ' + who;
+  const sp = document.createElement('span'); sp.textContent = text; d.appendChild(sp); log.appendChild(d); log.scrollTop = log.scrollHeight; return sp;
+}
+function typeInto(sp, text, done) {
+  let i = 0; const step = () => { sp.textContent = text.slice(0, ++i); log.scrollTop = log.scrollHeight; if (i < text.length) setTimeout(step, 14 + Math.random() * 24); else done && done(); }; step();
+}
+let opened = false, busy = false;
+function openChat(open) {
+  panel.hidden = !open; fab.setAttribute('aria-expanded', String(open)); document.body.classList.toggle('chat-open', open);
+  if (open) {
+    if (scrollY > innerHeight * 0.5) scrollTo({ top: 0, behavior: 'smooth' });
+    if (!opened) { opened = true; const sp = addMsg('tele', ''); typeInto(sp, 'Bienvenido al chat. Preguntame lo que quieras, que yo te contesto con toda la buena onda que me queda. O sea, poca.'); hero.setFace('feliz', 2.5); setMini('feliz'); }
+    if (!isMobile) setTimeout(() => input.focus(), 50);
+  }
+}
+fab.addEventListener('click', () => openChat(panel.hidden));
+document.getElementById('chatClose').addEventListener('click', () => openChat(false));
+document.querySelectorAll('.sugg button').forEach(b => b.addEventListener('click', () => { input.value = b.textContent; form.requestSubmit(); }));
+form.addEventListener('submit', async e => {
+  e.preventDefault();
+  const q = input.value.trim().slice(0, 400); if (!q || busy) return;
+  input.value = ''; addMsg('me', q); busy = true;
+  const dots = addMsg('tele typing', '•••');
+  hero.setFace('confundida', 1.2);
+  const t0 = performance.now();
+  let r;
+  if (hero.fx.isBroken) r = ['Krrzzz… estoy rota… tocá Reparar… krrzz.', 'rota'];
+  else r = await reply(q);
+  await new Promise(res => setTimeout(res, Math.max(0, 600 + Math.random() * 700 - (performance.now() - t0))));
+  dots.parentElement.classList.remove('typing');
+  const [text, face] = r;
+  if (face !== 'rota') { hero.setFace(face, 4.5); if (face === 'enojada') hero.glitch(0.25, 0.3); }
+  setMini(face);
+  typeInto(dots, text, () => (busy = false));
+  if (!hero.fx.isBroken && scrollY < innerHeight * 0.6) type(text);
+});
 /* ---------- arranque ---------- */
 (async function start() {
   try { await Promise.race([Promise.all([document.fonts.load('400 100px "Archivo Black"'), document.fonts.load('500 13px "Inter Tight"')]), new Promise(r => setTimeout(r, 2500))]); } catch (e) {}
@@ -610,3 +865,4 @@ heroEl.addEventListener('click', e => {
     setTimeout(() => type(LINES.hola[0]), 700);
   }));
 })();
+window.__nada = { hero };

@@ -3,6 +3,9 @@
 Web de agencia inspirada en las webs “de 2026”: minimalista, con un personaje 3D y tipografía gigante.
 
 - **T.E.L.E.**: la asistente con cabeza de tele vieja (three.js). Gira la cabeza y mira hacia el mouse o el dedo, parpadea, tiene scanlines, cables que cuelgan y reacciona si la tocás o tocás los botones.
+- **Chat con T.E.L.E.**: preguntale lo que quieras y te contesta con sarcasmo (todo en el navegador, sin servidor ni claves; la hora es real y el clima de Buenos Aires sale de Open-Meteo).
+- **Caras**: normal, feliz, enojada, aburrida, sorprendida, enamorada, dormida y confundida; cambian con el chat y al azar.
+- **No la toques 10 veces**: se enoja cada vez más, glitchea, y al décimo toque se rompe el vidrio, saltan chispas y se apaga. Botón “Reparar tele” (o se arregla sola).
 - **NADA**: letras gigantes que, al scrollear, se tapan de tinta negra que se derrite; adentro de la tinta las letras se inflan, primero cromadas y después con un glaseado rosa con granitos (shader propio).
 - **Ideas**: estrella cromada, flor azul y corazón con tachas inflados que giran con el puntero.
 - Liviano: sin frameworks, un solo canvas WebGL, calidad automática en celulares (`?q=baja|media|alta` o el botón “Calidad”).
