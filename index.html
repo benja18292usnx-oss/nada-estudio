@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Nada® — Estudio creativo. Nada es todo.</title>
+<meta name="description" content="Nada® es un estudio creativo (ficticio) de ideas, marcas y experiencias digitales. Conocé a T.E.L.E., nuestra asistente con cabeza de tele.">
+<meta name="theme-color" content="#d4d5dc">
+<meta property="og:title" content="Nada® — Nada es todo">
+<meta property="og:description" content="Estudio creativo de ideas. Una perspectiva: nada es todo.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preload" href="fonts/archivo-black.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/inter-tight-latin-500-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="modulepreload" href="vendor/three/three.module.min.js">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="gl" aria-hidden="true"></canvas>
+<div id="loader" aria-hidden="true"><span>∅</span></div>
+
+<header id="top">
+  <a class="logo" href="#" aria-label="Nada, inicio"><span class="glyph">∅</span><span>nada<sup>®</sup></span></a>
+  <nav class="nav" aria-label="Principal"><a href="#trabajos">Trabajos</a>, <a href="#nada">Agencia</a>, <a href="#" data-say="equipo">Búsquedas</a>, <a href="#" data-say="tienda">Tienda</a></nav>
+  <a class="talk" href="#contacto">Hablemos</a>
+</header>
+
+<main>
+  <section id="hero" class="view" data-view="hero">
+    <div class="intro">
+      <p class="who">Hola, soy T.E.L.E., la asistente fiel<br>(y un poco desubicada) de Nada®.</p>
+      <p class="chat" id="chat" aria-live="polite"><span class="hl" id="chatText"></span><span class="caret"></span></p>
+      <div class="pills">
+        <button type="button" data-say="equipo">Quiero sumarme</button>
+        <button type="button" data-say="trabajos">Mostrame trabajos</button>
+        <button type="button" data-say="cultura">Su cultura</button>
+      </div>
+      <p class="handle">@nada.estudio</p>
+    </div>
+    <p class="hint">Mové el mouse o tocá la pantalla · Tocá la tele</p>
+    <a class="scrolldown" href="#nada" aria-label="Bajar">Scrolleá <i>↓</i></a>
+  </section>
+
+  <section id="nada" class="pin" aria-label="Nada es todo">
+    <div class="stage view" data-view="nada">
+      <div class="persp"><p>Una perspectiva.<br>Nada es Todo.</p><a href="#trabajos" class="round" aria-label="Ver trabajos">→</a></div>
+      <h1 class="sr">NADA</h1>
+      <p class="corner bl">Buenos Aires</p>
+      <p class="corner br">Estudio creativo · Desde 2019</p>
+    </div>
+  </section>
+
+  <section id="trabajos" class="ideas">
+    <div class="ideas-copy">
+      <p>La mayoría de las marcas produce contenido.<br><b>Nosotros preferimos ideas.</b></p>
+    </div>
+    <div class="pin2">
+      <div class="stage2 view" data-view="ideas">
+        <ul class="works">
+          <li><span>01</span>Estrella cromada — Campaña “Brillo propio”</li>
+          <li><span>02</span>Flor azul — Identidad “Florecer”</li>
+          <li><span>03</span>Corazón de tachas — Lanzamiento “Latido”</li>
+        </ul>
+        <p class="drag">Mové el puntero para girarlos</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="contacto" class="contact">
+    <p class="kicker">¿Tenés una idea?</p>
+    <h2>Hablemos<br>de nada.</h2>
+    <div class="cols">
+      <div><b>Servicios</b><p>Dirección creativa<br>Identidad de marca<br>Webs y experiencias 3D<br>Contenido y campañas</p></div>
+      <div><b>Estudio</b><p>Buenos Aires, Argentina<br>hola@nada.estudio</p></div>
+      <div><b>Redes</b><p>Instagram<br>TikTok<br>Behance</p></div>
+    </div>
+    <p class="foot">Nada® es un estudio ficticio. Proyecto de diseño de Benja Ramos · 2026</p>
+  </section>
+</main>
+
+<button id="q" type="button" aria-label="Cambiar calidad gráfica">Calidad: <span>auto</span></button>
+<script type="module" src="app.js"></script>
+</body>
+</html>
